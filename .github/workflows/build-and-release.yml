@@ -46,9 +46,39 @@ jobs:
         mvn clean install -Pproduct -DskipTests
         echo "Archi product build completed"
     
+    - name: Verify p2 repository
+      run: |
+        REPO_PATH="${GITHUB_WORKSPACE}/archi-main/com.archimatetool.editor.product/target/repository"
+        echo "Checking for p2 repository at: $REPO_PATH"
+        
+        if [ ! -d "$REPO_PATH" ]; then
+          echo "ERROR: P2 repository directory not found!"
+          exit 1
+        fi
+        
+        if [ ! -f "$REPO_PATH/content.jar" ]; then
+          echo "ERROR: content.jar not found in repository!"
+          exit 1
+        fi
+        
+        if [ ! -f "$REPO_PATH/artifacts.jar" ]; then
+          echo "ERROR: artifacts.jar not found in repository!"
+          exit 1
+        fi
+        
+        echo "P2 repository verified successfully"
+        echo "Repository contents:"
+        ls -lh "$REPO_PATH"
+        echo ""
+        echo "Plugins directory:"
+        ls -lh "$REPO_PATH/plugins" | head -20
+    
     - name: Create pom.xml for Archi Scripting Plugin
       run: |
-        cat > archi-scripting-plugin/pom.xml << 'EOF'
+        ARCHI_REPO_PATH="${GITHUB_WORKSPACE}/archi-main/com.archimatetool.editor.product/target/repository"
+        echo "Archi repository path: $ARCHI_REPO_PATH"
+        
+        cat > archi-scripting-plugin/pom.xml << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
@@ -78,7 +108,7 @@ jobs:
                 <repository>
                     <id>Archi-Local</id>
                     <layout>p2</layout>
-                    <url>file:///${project.basedir}/../archi-main/com.archimatetool.editor.product/target/repository</url>
+                    <url>file://${ARCHI_REPO_PATH}</url>
                 </repository>
             </repositories>
 

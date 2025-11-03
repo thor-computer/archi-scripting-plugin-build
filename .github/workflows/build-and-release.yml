@@ -1,0 +1,287 @@
+name: Build Archi Scripting Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout workflow repository
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+    
+    - name: Set up Maven
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+    
+    - name: Clone Archi main repository
+      run: |
+        git clone https://github.com/archimatetool/archi.git archi-main
+        cd archi-main
+        echo "Archi main repository cloned"
+        git log -1 --oneline
+    
+    - name: Clone Archi Scripting Plugin repository
+      run: |
+        git clone https://github.com/archimatetool/archi-scripting-plugin.git archi-scripting-plugin
+        cd archi-scripting-plugin
+        echo "Archi Scripting Plugin repository cloned"
+        git log -1 --oneline
+    
+    - name: Build Archi main project
+      run: |
+        cd archi-main
+        mvn clean install -DskipTests
+        echo "Archi main build completed"
+    
+    - name: Build Archi product and p2 repository
+      run: |
+        cd archi-main
+        mvn clean install -Pproduct -DskipTests
+        echo "Archi product build completed"
+    
+    - name: Create pom.xml for Archi Scripting Plugin
+      run: |
+        cat > archi-scripting-plugin/pom.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+
+            <groupId>com.archimatetool</groupId>
+            <artifactId>archi-scripting-plugin</artifactId>
+            <version>1.11.0-SNAPSHOT</version>
+            <packaging>pom</packaging>
+
+            <name>Archi Scripting Plugin</name>
+
+            <properties>
+                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+                <tycho-version>5.0.0</tycho-version>
+                <maven.compiler.source>21</maven.compiler.source>
+                <maven.compiler.target>21</maven.compiler.target>
+            </properties>
+            
+            <repositories>
+                <repository>
+                    <id>Eclipse</id>
+                    <layout>p2</layout>
+                    <url>https://download.eclipse.org/releases/2024-06</url>
+                </repository>
+                
+                <repository>
+                    <id>Archi-Local</id>
+                    <layout>p2</layout>
+                    <url>file:///${project.basedir}/../archi-main/com.archimatetool.editor.product/target/repository</url>
+                </repository>
+            </repositories>
+
+            <modules>
+                <module>com.archimatetool.script</module>
+                <module>com.archimatetool.script.commandline</module>
+                <module>com.archimatetool.script.groovy</module>
+                <module>com.archimatetool.script.jruby</module>
+                <module>com.archimatetool.script.nashorn</module>
+                <module>com.archimatetool.script.premium</module>
+                <module>com.archimatetool.script.feature</module>
+            </modules>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.eclipse.tycho</groupId>
+                        <artifactId>tycho-maven-plugin</artifactId>
+                        <version>${tycho-version}</version>
+                        <extensions>true</extensions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.eclipse.tycho</groupId>
+                        <artifactId>tycho-packaging-plugin</artifactId>
+                        <version>${tycho-version}</version>
+                        <configuration>
+                            <archive>
+                                <addMavenDescriptor>false</addMavenDescriptor>
+                            </archive>
+                        </configuration>
+                    </plugin>
+                    
+                    <plugin>
+                        <groupId>org.eclipse.tycho</groupId>
+                        <artifactId>tycho-compiler-plugin</artifactId>
+                        <version>${tycho-version}</version>
+                        <configuration>
+                            <encoding>UTF-8</encoding>
+                            <useProjectSettings>false</useProjectSettings>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.eclipse.tycho</groupId>
+                        <artifactId>target-platform-configuration</artifactId>
+                        <version>${tycho-version}</version>
+                        <configuration>
+                            <executionEnvironment>JavaSE-21</executionEnvironment>
+                            <environments>
+                                <environment>
+                                    <os>win32</os>
+                                    <ws>win32</ws>
+                                    <arch>x86_64</arch>
+                                </environment>
+                                <environment>
+                                    <os>linux</os>
+                                    <ws>gtk</ws>
+                                    <arch>x86_64</arch>
+                                </environment>
+                                <environment>
+                                    <os>macosx</os>
+                                    <ws>cocoa</ws>
+                                    <arch>x86_64</arch>
+                                </environment>
+                                <environment>
+                                    <os>macosx</os>
+                                    <ws>cocoa</ws>
+                                    <arch>aarch64</arch>
+                                </environment>
+                            </environments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+
+        </project>
+        EOF
+        echo "pom.xml created for scripting plugin"
+    
+    - name: Create Tycho extensions configuration
+      run: |
+        mkdir -p archi-scripting-plugin/.mvn
+        cat > archi-scripting-plugin/.mvn/extensions.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <extensions>
+          <extension>
+            <groupId>org.eclipse.tycho</groupId>
+            <artifactId>tycho-build</artifactId>
+            <version>5.0.0</version>
+          </extension>
+        </extensions>
+        EOF
+        echo "Tycho extensions configuration created"
+    
+    - name: Build Archi Scripting Plugin
+      run: |
+        cd archi-scripting-plugin
+        mvn clean verify
+        echo "Archi Scripting Plugin build completed"
+    
+    - name: Collect plugin artifacts
+      run: |
+        mkdir -p release-artifacts
+        
+        # Copy all plugin JARs
+        cp archi-scripting-plugin/com.archimatetool.script/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.commandline/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.groovy/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.jruby/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.nashorn/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.premium/target/*.jar release-artifacts/ || true
+        cp archi-scripting-plugin/com.archimatetool.script.feature/target/*.jar release-artifacts/ || true
+        
+        echo "Collected artifacts:"
+        ls -lh release-artifacts/
+    
+    - name: Create release package
+      run: |
+        cd release-artifacts
+        zip -r ../archi-scripting-plugin-binaries.zip *.jar
+        cd ..
+        
+        # Create checksums
+        sha256sum archi-scripting-plugin-binaries.zip > archi-scripting-plugin-binaries.zip.sha256
+        
+        echo "Release package created"
+        ls -lh archi-scripting-plugin-binaries.zip*
+    
+    - name: Get version info
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION="snapshot-$(date +%Y%m%d-%H%M%S)"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+        # Get commit info from scripting plugin repo
+        cd archi-scripting-plugin
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        COMMIT_DATE=$(git log -1 --format=%cd --date=short)
+        echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+        echo "commit_date=$COMMIT_DATE" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: Archi Scripting Plugin ${{ steps.version.outputs.version }}
+        body: |
+          # Archi Scripting Plugin Build
+          
+          **Build Date:** ${{ steps.version.outputs.commit_date }}
+          **Source Commit:** ${{ steps.version.outputs.commit_sha }}
+          
+          ## What's Included
+          
+          This release contains all compiled plugin JARs for the Archi Scripting Plugin (jArchi):
+          
+          - `com.archimatetool.script` - Core scripting functionality with GraalVM JavaScript
+          - `com.archimatetool.script.commandline` - Command-line interface support
+          - `com.archimatetool.script.groovy` - Groovy scripting engine
+          - `com.archimatetool.script.jruby` - JRuby scripting engine
+          - `com.archimatetool.script.nashorn` - Nashorn JavaScript engine
+          - `com.archimatetool.script.premium` - Premium examples
+          - `com.archimatetool.script.feature` - Eclipse feature bundle
+          
+          ## Installation
+          
+          1. Download `archi-scripting-plugin-binaries.zip`
+          2. Extract all JAR files
+          3. Copy the JAR files to your Archi installation's `plugins` directory
+          4. Restart Archi
+          5. The Scripts menu should appear in the menu bar
+          
+          ## Requirements
+          
+          - Archi 5.5.0 or later
+          - Java 21 or later
+          
+          ## Build Information
+          
+          - Built from: [archimatetool/archi-scripting-plugin](https://github.com/archimatetool/archi-scripting-plugin)
+          - Build system: Maven + Tycho 5.0.0
+          - Java version: 21
+          
+          ## Checksums
+          
+          See `archi-scripting-plugin-binaries.zip.sha256` for SHA-256 checksum verification.
+        files: |
+          archi-scripting-plugin-binaries.zip
+          archi-scripting-plugin-binaries.zip.sha256
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

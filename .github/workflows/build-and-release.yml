@@ -73,136 +73,22 @@ jobs:
         echo "Plugins directory:"
         ls -lh "$REPO_PATH/plugins" | head -20
     
-    - name: Create pom.xml for Archi Scripting Plugin
+    - name: Setup plugin build configuration
       run: |
         ARCHI_REPO_PATH="${GITHUB_WORKSPACE}/archi-main/com.archimatetool.editor.product/target/repository"
         echo "Archi repository path: $ARCHI_REPO_PATH"
         
-        cat > archi-scripting-plugin/pom.xml << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-            <modelVersion>4.0.0</modelVersion>
-
-            <groupId>com.archimatetool</groupId>
-            <artifactId>archi-scripting-plugin</artifactId>
-            <version>1.11.0-SNAPSHOT</version>
-            <packaging>pom</packaging>
-
-            <name>Archi Scripting Plugin</name>
-
-            <properties>
-                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-                <tycho-version>5.0.0</tycho-version>
-                <maven.compiler.source>21</maven.compiler.source>
-                <maven.compiler.target>21</maven.compiler.target>
-            </properties>
-            
-            <repositories>
-                <repository>
-                    <id>Eclipse</id>
-                    <layout>p2</layout>
-                    <url>https://download.eclipse.org/releases/2024-06</url>
-                </repository>
-                
-                <repository>
-                    <id>Archi-Local</id>
-                    <layout>p2</layout>
-                    <url>file://${ARCHI_REPO_PATH}</url>
-                </repository>
-            </repositories>
-
-            <modules>
-                <module>com.archimatetool.script</module>
-                <module>com.archimatetool.script.commandline</module>
-                <module>com.archimatetool.script.groovy</module>
-                <module>com.archimatetool.script.jruby</module>
-                <module>com.archimatetool.script.nashorn</module>
-                <module>com.archimatetool.script.premium</module>
-                <module>com.archimatetool.script.feature</module>
-            </modules>
-
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.eclipse.tycho</groupId>
-                        <artifactId>tycho-maven-plugin</artifactId>
-                        <version>${tycho-version}</version>
-                        <extensions>true</extensions>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>org.eclipse.tycho</groupId>
-                        <artifactId>tycho-packaging-plugin</artifactId>
-                        <version>${tycho-version}</version>
-                        <configuration>
-                            <archive>
-                                <addMavenDescriptor>false</addMavenDescriptor>
-                            </archive>
-                        </configuration>
-                    </plugin>
-                    
-                    <plugin>
-                        <groupId>org.eclipse.tycho</groupId>
-                        <artifactId>tycho-compiler-plugin</artifactId>
-                        <version>${tycho-version}</version>
-                        <configuration>
-                            <encoding>UTF-8</encoding>
-                            <useProjectSettings>false</useProjectSettings>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>org.eclipse.tycho</groupId>
-                        <artifactId>target-platform-configuration</artifactId>
-                        <version>${tycho-version}</version>
-                        <configuration>
-                            <executionEnvironment>JavaSE-21</executionEnvironment>
-                            <environments>
-                                <environment>
-                                    <os>win32</os>
-                                    <ws>win32</ws>
-                                    <arch>x86_64</arch>
-                                </environment>
-                                <environment>
-                                    <os>linux</os>
-                                    <ws>gtk</ws>
-                                    <arch>x86_64</arch>
-                                </environment>
-                                <environment>
-                                    <os>macosx</os>
-                                    <ws>cocoa</ws>
-                                    <arch>x86_64</arch>
-                                </environment>
-                                <environment>
-                                    <os>macosx</os>
-                                    <ws>cocoa</ws>
-                                    <arch>aarch64</arch>
-                                </environment>
-                            </environments>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-
-        </project>
-        EOF
-        echo "pom.xml created for scripting plugin"
-    
-    - name: Create Tycho extensions configuration
-      run: |
+        # Copy pom.xml and replace the repository path placeholder
+        cp plugin-pom.xml archi-scripting-plugin/pom.xml
+        sed -i "s|ARCHI_REPO_PATH_PLACEHOLDER|${ARCHI_REPO_PATH}|g" archi-scripting-plugin/pom.xml
+        
+        # Copy Tycho extensions configuration
         mkdir -p archi-scripting-plugin/.mvn
-        cat > archi-scripting-plugin/.mvn/extensions.xml << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <extensions>
-          <extension>
-            <groupId>org.eclipse.tycho</groupId>
-            <artifactId>tycho-build</artifactId>
-            <version>5.0.0</version>
-          </extension>
-        </extensions>
-        EOF
-        echo "Tycho extensions configuration created"
+        cp tycho-extensions.xml archi-scripting-plugin/.mvn/extensions.xml
+        
+        echo "Build configuration files copied"
+        echo "Repository URL in pom.xml:"
+        grep -A 2 "Archi-Local" archi-scripting-plugin/pom.xml
     
     - name: Build Archi Scripting Plugin
       run: |

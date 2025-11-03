@@ -20,13 +20,6 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
     
-    - name: Set up Maven
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: 'maven'
-    
     - name: Clone Archi main repository
       run: |
         git clone https://github.com/archimatetool/archi.git archi-main
